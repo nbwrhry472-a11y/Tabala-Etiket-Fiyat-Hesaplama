@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<title>Kaju Reklam Etiket Hesaplama</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#f4f4f4;color:#111;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+body{padding-bottom:30px}
+.wrap{width:100%;max-width:720px;margin:auto;padding:16px 12px}
+h1{text-align:center;margin:6px 0 4px;font-size:24px}
+.sub{text-align:center;color:#777;font-size:13px;margin-bottom:16px}
+.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,.07)}
+label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+input,select,button{font-family:inherit;font-size:17px}
+input,select{width:100%;height:50px;border:1px solid #ccc;border-radius:10px;background:#fff;padding:0 12px;color:#111;display:block;touch-action:manipulation}
+input:focus,select:focus{outline:2px solid #111;border-color:#111}
+button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.full{grid-column:1/-1}
+.main{width:100%;height:52px;border:0;border-radius:11px;background:#111;color:#fff;font-weight:800}
+.secondary{width:100%;height:46px;border:1px solid #ccc;border-radius:10px;background:#eee;font-weight:800;margin-top:9px}
+.result{margin-top:14px;background:#111;color:#fff;border-radius:14px;padding:16px}
+.big{font-size:31px;font-weight:900}
+.note{margin-top:10px;padding:11px;border-radius:10px;background:#eee;color:#222;font-size:13px;line-height:1.5}
+.addbox{display:none;margin-top:12px;padding:13px;background:#f3f3f3;border-radius:12px}
+.addbox.open{display:block}
+.addbox button{margin-top:9px}
+.materials{margin-top:12px}
+.matrow{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #eee}
+.matrow:last-child{border-bottom:0}
+.matname{flex:1;font-weight:700;font-size:14px}
+.del{height:40px;border:0;border-radius:8px;background:#eee;padding:0 12px}
+.hint{font-size:12px;color:#777;line-height:1.4;margin-top:6px}
+@media(max-width:520px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Kaju Reklam Etiket Hesaplama</h1>
+<div class="sub">Etiket tabaka yerleşim ve fiyat hesaplama</div>
+
+<div class="card">
+<div class="grid">
+<div class="full">
+<label for="material">Malzeme</label>
+<select id="material">
+<option value="0">Kuşe Etiket</option>
+<option value="1">PP Opak Etiket</option>
+<option value="2">PP Şeffaf Etiket</option>
+<option value="3">Metal Etiket</option>
+</select>
+<button type="button" id="addOpen" class="secondary" onclick="openAdd()">＋ Yeni Malzeme Ekle</button>
+
+<div id="addbox" class="addbox">
+<label for="newName">Malzeme Adı</label>
+<input id="newName" type="text" autocomplete="off" placeholder="Örn. PVC Etiket">
+<label for="newPrice" style="margin-top:10px">İç tabaka fiyatı (TL)</label>
+<input id="newPrice" type="text" inputmode="decimal" autocomplete="off" placeholder="Örn. 40">
+<div class="hint">Bu fiyat malzeme seçiminde müşteriye gösterilmez; sadece hesaplamada kullanılır.</div>
+<button type="button" id="addSave" class="main" onclick="addMaterial()">MALZEMEYİ EKLE</button>
+<button type="button" id="addCancel" class="secondary" onclick="cancelAdd()">VAZGEÇ</button>
+</div>
+</div>
+
+<div>
+<label for="qty">Adet</label>
+<input id="qty" type="text" inputmode="numeric" value="1" autocomplete="off">
+</div>
+<div>
+<label for="gap">Boşluk</label>
+<select id="gap">
+<option value="0">0 mm</option>
+<option value="3" selected>3 mm</option>
+</select>
+</div>
+<div>
+<label for="w">En (mm)</label>
+<input id="w" type="text" inputmode="decimal" value="230" autocomplete="off">
+</div>
+<div>
+<label for="h">Boy (mm)</label>
+<input id="h" type="text" inputmode="decimal" value="150" autocomplete="off">
+</div>
+<div class="full">
+<button type="button" id="calc" class="main" onclick="calculate()">HESAPLA</button>
+</div>
+</div>
+<div id="result"></div>
+</div>
+
+<div class="card">
+<strong>Eklenen Malzemeler</strong>
+<div class="hint">Burada malzeme adları görünür; fiyatlar gösterilmez.</div>
+<div id="materials" class="materials"></div>
+</div>
+</div>
+
+
+
+
+
+
+<script>
+const SHEET_W=310, SHEET_H=430;
+const MATERIAL_KEY='kaju_reklam_materials_v9';
+const DEFAULT_MATERIALS=[
+  {name:'Kuşe Etiket',price:25,custom:false},
+  {name:'PP Opak Etiket',price:35,custom:false},
+  {name:'PP Şeffaf Etiket',price:35,custom:false},
+  {name:'Metal Etiket',price:50,custom:false}
+];
+
+function el(id){return document.getElementById(id);}
+
+function getMaterials(){
+  try{
+    const data=JSON.parse(localStorage.getItem(MATERIAL_KEY));
+    if(Array.isArray(data)&&data.length)return data;
+  }catch(e){}
+  return DEFAULT_MATERIALS.map(x=>({...x}));
+}
+
+function saveMaterials(data){
+  try{localStorage.setItem(MATERIAL_KEY,JSON.stringify(data));}catch(e){}
+}
+
+function escapeText(v){
+  return String(v).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+/* 310x430 tabaka içinde normal, döndürülmüş ve karma yerleşimi dener. */
+function placement(w,h,gap){
+  const a=w+gap, b=h+gap;
+  let best={count:0,type:'Normal'};
+
+  const normal=Math.floor(SHEET_W/a)*Math.floor(SHEET_H/b);
+  if(normal>best.count)best={count:normal,type:'Normal'};
+
+  const rotated=Math.floor(SHEET_W/b)*Math.floor(SHEET_H/a);
+  if(rotated>best.count)best={count:rotated,type:'Döndürülmüş'};
+
+  /* Dikey şerit + yatay şerit kombinasyonları */
+  for(let n=0;n<=Math.floor(SHEET_W/a);n++){
+    const used=n*a, rem=SHEET_W-used;
+    const c1=n*Math.floor(SHEET_H/b);
+    const c2=Math.floor(rem/b)*Math.floor(SHEET_H/a);
+    if(c1+c2>best.count)best={count:c1+c2,type:'Karma'};
+  }
+  for(let n=0;n<=Math.floor(SHEET_W/b);n++){
+    const used=n*b, rem=SHEET_W-used;
+    const c1=n*Math.floor(SHEET_H/a);
+    const c2=Math.floor(rem/a)*Math.floor(SHEET_H/b);
+    if(c1+c2>best.count)best={count:c1+c2,type:'Karma'};
+  }
+  return best;
+}
+
+function multiplier(sheets){
+  if(sheets<=5)return 2;
+  if(sheets<=20)return 1.75;
+  if(sheets<=50)return 1.3;
+  return 1;
+}
+
+function renderMaterials(){
+  const select=el('material');
+  const list=el('materials');
+  const data=getMaterials();
+  select.innerHTML='';
+  data.forEach((m,i)=>{
+    const opt=document.createElement('option');
+    opt.value=i;
+    opt.textContent=m.name;
+    select.appendChild(opt);
+  });
+
+  list.innerHTML='';
+  data.forEach((m,i)=>{
+    if(!m.custom)return;
+    const row=document.createElement('div');
+    row.className='material-row';
+    row.innerHTML='<span>'+escapeText(m.name)+'</span><button type="button">Sil</button>';
+    row.querySelector('button').addEventListener('click',function(){
+      const now=getMaterials();
+      now.splice(i,1);
+      saveMaterials(now);
+      renderMaterials();
+    });
+    list.appendChild(row);
+  });
+}
+
+function openAdd(){
+  el('addbox').style.display='block';
+  el('newName').value='';
+  el('newPrice').value='';
+  el('newName').focus();
+}
+
+function cancelAdd(){
+  el('addbox').style.display='none';
+}
+
+function addMaterial(){
+  const name=el('newName').value.trim();
+  const price=Number(String(el('newPrice').value).replace(',','.'));
+  if(!name){alert('Malzeme adını girin.');return;}
+  if(!Number.isFinite(price)||price<0){alert('Geçerli bir iç fiyat girin.');return;}
+
+  const data=getMaterials();
+  if(data.length>=30){alert('En fazla 30 malzeme ekleyebilirsiniz.');return;}
+  data.push({name:name,price:price,custom:true});
+  saveMaterials(data);
+  cancelAdd();
+  renderMaterials();
+  el('material').value=String(data.length-1);
+}
+
+function calculate(){
+  const qty=Math.max(1,parseInt(el('qty').value||'1',10));
+  const gap=Number(el('gap').value||0);
+  const w=Number(String(el('w').value).replace(',','.'));
+  const h=Number(String(el('h').value).replace(',','.'));
+  const materialIndex=Number(el('material').value||0);
+  const data=getMaterials();
+  const material=data[materialIndex]||data[0];
+
+  if(!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0){
+    alert('En ve Boy ölçülerini girin.');
+    return;
+  }
+
+  const p=placement(w,h,gap);
+  if(p.count<1){
+    el('result').innerHTML='<div class="result-box"><h3>Sonuç</h3><p>Bu ölçü 310 × 430 mm tabakaya sığmıyor.</p></div>';
+    return;
+  }
+
+  const sheets=Math.ceil(qty/p.count);
+  const mult=multiplier(sheets);
+  const total=sheets*material.price*mult;
+
+  let note='';
+  if(p.count===4)note='Ölçüyü biraz küçülterek 5 adet/tabaka elde edebilirsiniz.';
+  else if(p.count===5)note='Ölçüyü biraz küçülterek 6 adet/tabaka elde edebilirsiniz.';
+  else if(p.count===6)note='Ölçüyü biraz küçülterek daha fazla adet/tabaka elde edebilirsiniz.';
+
+  el('result').innerHTML=
+    '<div class="result-box">'+
+    '<h3>Hesaplama Sonucu</h3>'+
+    '<p><b>Tabaka başına:</b> '+p.count+' adet</p>'+
+    '<p><b>Yerleşim:</b> '+p.type+'</p>'+
+    '<p><b>Gerekli tabaka:</b> '+sheets+'</p>'+
+    '<p><b>Fiyat:</b> '+total.toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2})+' TL</p>'+
+    (note?'<p class="note">'+note+'</p>':'')+
+    '</div>';
+}
+
+document.addEventListener('DOMContentLoaded',function(){
+  renderMaterials();
+
+  el('addOpen').addEventListener('click',openAdd);
+  el('addSave').addEventListener('click',addMaterial);
+  el('addCancel').addEventListener('click',cancelAdd);
+  el('calc').addEventListener('click',calculate);
+
+  [el('qty'),el('w'),el('h')].forEach(function(input){
+    input.disabled=false;
+    input.readOnly=false;
+    input.addEventListener('keydown',function(e){
+      if(e.key==='Enter')calculate();
+    });
+  });
+});
+</script>
+
+</body>
+</html>
